@@ -7,12 +7,15 @@ from trajectory_msgs.msg import JointTrajectoryPoint, JointTrajectory
 from scipy.spatial.transform import Rotation
 import numpy as np
 import rospy
+import os
 import copy
 from transform import TF_mat
 import traj_gen
 
+USERNAME = os.getlogin()
+
 import sys
-sys.path.append('/home/lyh/catkin_ws/src/suhan_robot_model_tools')
+sys.path.append('/home/{}/catkin_ws/src/suhan_robot_model_tools'.format(USERNAME))
 from srmt.planning_scene import PlanningScene
 from srmt.planner.rrt_connect import SuhanRRTConnect
 from srmt.kinematics import TRACIK
@@ -161,7 +164,7 @@ def make_object_msg(body, msg=None):
     return msg
 
 
-tree = ET.parse('/home/lyh/catkin_ws/src/tocabi/dyros_tocabi_v2/tocabi_description/mujoco_model/dyros_tocabi_with_object_2024winter.xml')
+tree = ET.parse('/home/{}/catkin_ws/src/tocabi/dyros_tocabi_v2/tocabi_description/mujoco_model/dyros_tocabi_with_object_2024winter.xml'.format(USERNAME))
 root = tree.getroot()
 worldbody = None
 for child in root:
@@ -179,8 +182,8 @@ import message_filters
 
 filename1 = 'cur_right_arm.txt'
 filename2 = 'traj_right_arm.txt'
-f1 = open('/home/lyh/catkin_ws/src/tocabi/tocabi_srmt/data/{}'.format(filename1), 'w')
-f2 = open('/home/lyh/catkin_ws/src/tocabi/tocabi_srmt/data/{}'.format(filename2), 'w')
+f1 = open('/home/{}/catkin_ws/src/tocabi/tocabi_srmt/data/{}'.format(USERNAME, filename1), 'w')
+f2 = open('/home/{}/catkin_ws/src/tocabi/tocabi_srmt/data/{}'.format(USERNAME, filename2), 'w')
 
 def save_joints(file, msg):
     file.write('{} '.format(msg.header.stamp.to_sec()))
