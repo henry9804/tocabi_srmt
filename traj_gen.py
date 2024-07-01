@@ -4,7 +4,7 @@ from moveit_msgs.msg import RobotTrajectory
 from trajectory_msgs.msg import JointTrajectoryPoint
 from dyros_math_python import *
 
-def ocp_trajectory(path, joint_upper_limit, joint_lower_limit, v_max):
+def ocp_trajectory(path, joint_upper_limit, joint_lower_limit, v_max, joint_names):
     num_waypoints, dof = path.shape
     # forward kinematics
     dt = SX.sym('dt')
@@ -69,10 +69,10 @@ def ocp_trajectory(path, joint_upper_limit, joint_lower_limit, v_max):
     trajectory = RobotTrajectory()
     trajectory.joint_trajectory.header.seq = 0
     trajectory.joint_trajectory.header.stamp = rospy.Time(0)
-    trajectory.joint_trajectory.header.frame_id = 'base'
-    # trajectory.joint_trajectory.joint_names = joint_names
+    trajectory.joint_trajectory.header.frame_id = 'world'
+    trajectory.joint_trajectory.joint_names = joint_names
     t = 0
-    hz = 2000
+    hz = 20
     dt = 1/hz
     for i in range(num_waypoints - 1):
         while t < opt_time[i+1]:
