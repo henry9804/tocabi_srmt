@@ -1,6 +1,6 @@
 import sys, os
-sys.path.append('/home/embodied_ai/lyh/act')
-sys.path.append('/home/embodied_ai/catkin_ws/src/suhan_robot_model_tools')
+sys.path.append('/home/lyh/projects/embodied_ai/act')
+sys.path.append('/home/lyh/catkin_ws/src/suhan_robot_model_tools')
 
 from moveit_msgs.msg import CollisionObject, DisplayTrajectory, RobotState, RobotTrajectory
 from geometry_msgs.msg import Pose, PolygonStamped, Point, Transform
@@ -32,6 +32,9 @@ robot_state.multi_dof_joint_state.joint_names.append('world_vjoint')
 robot_state.multi_dof_joint_state.transforms.append(Transform())
 bridge = CvBridge()
 
+joint_names = ["R_Shoulder1_Joint", "R_Shoulder2_Joint", "R_Shoulder3_Joint", "R_Armlink_Joint",
+               "R_Elbow_Joint", "R_Forearm_Joint", "R_Wrist1_Joint", "R_Wrist2_Joint"]
+
 class TocabiAct:
     def __init__(self, args):
         is_eval = args['eval']
@@ -43,7 +46,6 @@ class TocabiAct:
         batch_size_val = args['batch_size']
         num_epochs = args['num_epochs']
         self.temporal_agg = args['temporal_agg']
-        print(self.temporal_agg)
 
         task_config = SIM_TASK_CONFIGS[task_name]
         dataset_dir = task_config['dataset_dir']
@@ -52,7 +54,7 @@ class TocabiAct:
         camera_names = task_config['camera_names']
 
         ckpt_name = 'policy_best.ckpt'
-        self.state_dim = 8
+        self.state_dim = task_config['model_dof']
         self.max_timesteps = int(episode_len * 1.5)
 
         policy_config = {'lr': args['lr'],
@@ -66,6 +68,7 @@ class TocabiAct:
                         'dec_layers': 7,
                         'nheads': 8,
                         'camera_names': camera_names,
+                        'state_dim': self.state_dim
                         }
 
         ckpt_path = os.path.join(ckpt_dir, ckpt_name)
@@ -162,6 +165,7 @@ class TocabiAct:
                 print(self.t, ': ', target_qpos)
                 joint_target = JointState()
                 joint_target.header = img_msg.header
+                joint_target.name = joint_names
                 joint_target.position = target_qpos
                 self.joint_target_pub.publish(joint_target)
                 self.t += 1
@@ -176,8 +180,8 @@ class TocabiAct:
 '''
 run with following args
 python tocabi_act.py \
---task_name sim_tocabi_approach_cup --ckpt_dir /home/embodied_ai/lyh/act/ckpt \
---policy_class ACT --kl_weight 10 --chunk_size 20 --hidden_dim 512 --batch_size 8 \
+--task_name sim_tocabi_approach_mustard --ckpt_dir /home/lyh/projects/embodied_ai/act/ckpt/2_obj \
+--policy_class ACT --kl_weight 10 --chunk_size 50 --hidden_dim 512 --batch_size 8 \
 --dim_feedforward 3200 --num_epochs 2000  --lr 1e-5 --seed 0 --temporal_agg
 '''
 if __name__ == '__main__':
@@ -207,7 +211,7 @@ if __name__ == '__main__':
     joint_sub = message_filters.Subscriber("/tocabi/jointstates", JointState)
     hand_sub = message_filters.Subscriber("/tocabi/handstates", JointState)
     img_sub = message_filters.Subscriber("/mujoco_ros_interface/camera/image", Image)
-    ts = message_filters.ApproximateTimeSynchronizer([point_sub, joint_sub, hand_sub, img_sub], 10, 0.001)
+    ts = message_filters.ApproximateTimeSynchronizer([point_sub, joint_sub, hand_sub, img_sub], 10, 0.01)
     ts.registerCallback(tocabi_act.sync_callback)
 
     terminate_sub = rospy.Subscriber("/tocabi/act/terminate", std_msg.Bool, tocabi_act.terminate_callback)

@@ -51,7 +51,7 @@ move_group = moveit_commander.MoveGroupCommander('right_arm')
 joint_names = ["R_Shoulder1_Joint", "R_Shoulder2_Joint", "R_Shoulder3_Joint", "R_Armlink_Joint",
                "R_Elbow_Joint", "R_Forearm_Joint", "R_Wrist1_Joint", "R_Wrist2_Joint"]
 
-xml_parser = xmlParser(f'/home/{USERNAME}/catkin_ws/src/tocabi/dyros_tocabi_v2/tocabi_description/mujoco_model/dyros_tocabi_with_object_with_shhand.xml')
+xml_parser = xmlParser(f'/home/{USERNAME}/catkin_ws/src/tocabi/dyros_tocabi_v2/tocabi_description/mujoco_model/dyros_tocabi_with_object_with_syhand.xml')
 msgs = xml_parser.get_object_msgs()
 for msg in msgs:
     planning_scene.apply_collision_object_msg(msg)
@@ -160,7 +160,7 @@ def sub_new_cup_pos(msg):
                 traj_vis_pub.publish(traj_vis_msg)
                 break
 
-# new_cup_pos_sub = rospy.Subscriber("/new_cup_pos", Point, sub_new_cup_pos)
+new_cup_pos_sub = rospy.Subscriber("/new_cup_pos", Point, sub_new_cup_pos)
 
 trajectory_pub = rospy.Publisher("/tocabi/srmt/trajectory", JointTrajectory, queue_size=1)
 traj_vis_pub = rospy.Publisher("/tocabi/srmt/traj_vis", DisplayTrajectory, queue_size=1)
@@ -183,7 +183,7 @@ joint_lower_limit = tracik_right.get_lower_bound()
 v_max = [10.0] * tracik_right.get_num_joints()
 
 # obj2grasp = TF_mat.from_vectors([-0.07, -0.22, 0.05], [0.1464466, 0.3535534, -0.3535534, 0.8535534])
-obj2grasp = TF_mat.from_vectors([-0.04, -0.15, 0.1], [0.1464466, 0.3535534, -0.3535534, 0.8535534])    # for mustard
+obj2grasp = TF_mat.from_vectors([-0.02, -0.13, 0.1], [0.1830127, 0.6830127, -0.1830127, 0.6830127])    # for mustard
 # ee2grasp = TF_mat.from_vectors([0.0, 0.1, -0.15], [-0.5, -0.5, 0.5, 0.5])
 
 while rospy.is_shutdown() is False:
