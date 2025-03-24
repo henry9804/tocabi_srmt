@@ -1,6 +1,6 @@
 from moveit_msgs.msg import CollisionObject, DisplayTrajectory, RobotState, RobotTrajectory
 from shape_msgs.msg import SolidPrimitive
-from geometry_msgs.msg import Pose, PolygonStamped, Point, Transform
+from geometry_msgs.msg import Pose, PolygonStamped, Transform
 from sensor_msgs.msg import JointState
 from trajectory_msgs.msg import JointTrajectory
 import std_msgs.msg as std_msgs
@@ -29,13 +29,13 @@ q_init = np.array([ 0.0, 0.0, 0.92983, 0.0, 0.0, 0.0, 1.0,
                     0.3, 0.3, 1.5, -1.27, -1.0, 0.0, -1.0, 0.0,
                     0.0, 0.0,
                     -0.3, -0.3, -1.5, 1.27, 1.0, 0.0, 1.0, 0.0,
-                    0, 0.0549746, 0.0687182, 0.00880483, 0.151734,  # aa1, act1, mcp1, pip1, dip1
-                    0, 0.0549746, 0.0687182, 0.00880483, 0.151734,  # aa2, act2, mcp2, pip2, dip2
-                    0, 0.0549746, 0.0687182, 0.00880483, 0.151734,  # aa3, act3, mcp3, pip3, dip3
-                    0, 0.0549746, 0.0687182, 0.00880483, 0.151734   # aa4, act4, mcp4, pip4, dip4
+                    0.8, 0.054974, 0.068718, 0.008804, 0.151734,  # aa1, act1, mcp1, pip1, dip1
+                    0, 0.054974, 0.068718, 0.008804, 0.151734,  # aa2, act2, mcp2, pip2, dip2
+                    0, 0.054974, 0.068718, 0.008804, 0.151734,  # aa3, act3, mcp3, pip3, dip3
+                    0, 0.054974, 0.068718, 0.008804, 0.151734   # aa4, act4, mcp4, pip4, dip4
                     ])
-cup_pos = np.zeros(3)
-cup_quat = np.array([0.0, 0.0, 0.0, 1.0])
+obj_pos = np.zeros(3)
+obj_quat = np.array([0.0, 0.0, 0.0, 1.0])
 pelvis_current = np.zeros(7)
 q_current = np.zeros(33)
 hand_current = np.zeros(20)
@@ -118,14 +118,13 @@ hand_sub = message_filters.Subscriber("/tocabi/handstates", JointState)
 ts = message_filters.ApproximateTimeSynchronizer([point_sub, joint_sub, hand_sub], 10, 0.001)
 ts.registerCallback(sync_callback)
 
-def sub_new_cup_pos(msg):
+def sub_new_obj_pose(msg):
     time.sleep(1)
     body_rel_pos, body_rel_quat = tracik_body.forward_kinematics(q_current[12:15])
     body_tf = TF_mat.mul(TF_mat.from_vectors(pelvis_current[:3], pelvis_current[-4:]), TF_mat.from_vectors(body_rel_pos, body_rel_quat))
 
-    cup_rel_tf = TF_mat.mul(body_tf.inverse(), TF_mat.from_vectors(cup_pos, cup_quat))
-    grasp_pos, grasp_quat = TF_mat.mul(cup_rel_tf, obj2grasp).as_vectors()
-    # grasp_pos, grasp_quat = TF_mat.mul(cup_rel_tf, ee2grasp.inverse()).as_vectors()
+    obj_rel_tf = TF_mat.mul(body_tf.inverse(), TF_mat.from_vectors(obj_pos, obj_quat))
+    grasp_pos, grasp_quat = TF_mat.mul(obj_rel_tf, obj2grasp).as_vectors()
 
     planning_scene.set_planning_joint_index(32, 40)
 
@@ -143,7 +142,7 @@ def sub_new_cup_pos(msg):
 
     if r:
         rrt_planner = SuhanRRTConnect(state_dim=8, lb=joint_lower_limit, ub=joint_upper_limit, validity_fn=planning_scene.is_valid)
-        rrt_planner.max_distance = 0.25
+        rrt_planner.max_distance = 0.1
         rrt_planner.set_start(q_current[-8:])
         rrt_planner.set_goal(q_goal)
         for _ in range(10):
@@ -160,7 +159,8 @@ def sub_new_cup_pos(msg):
                 traj_vis_pub.publish(traj_vis_msg)
                 break
 
-new_cup_pos_sub = rospy.Subscriber("/new_cup_pos", Point, sub_new_cup_pos)
+# uncomment for automatic data collection
+# new_obj_pose_sub = rospy.Subscriber("/new_obj_pose", Pose, sub_new_obj_pose)
 
 trajectory_pub = rospy.Publisher("/tocabi/srmt/trajectory", JointTrajectory, queue_size=1)
 traj_vis_pub = rospy.Publisher("/tocabi/srmt/traj_vis", DisplayTrajectory, queue_size=1)
@@ -168,13 +168,13 @@ traj_vis_pub = rospy.Publisher("/tocabi/srmt/traj_vis", DisplayTrajectory, queue
 hand_open_pub = rospy.Publisher("/mujoco_ros_interface/hand_open", std_msgs.Int32, queue_size=1)
 hand_open_msg = std_msgs.Int32()
 
-def update_cup_pose(pose_msg):
+def update_obj_pose(pose_msg):
     pos, quat = pose_to_vectors(pose_msg)
-    cup_pos[:] = pos
-    cup_quat[:] = quat
-    planning_scene.update_object_pose("cup", cup_pos, cup_quat)
+    obj_pos[:] = pos
+    obj_quat[:] = quat
+    planning_scene.update_object_pose("obj", obj_pos, obj_quat)
 
-cup_sub = rospy.Subscriber("/cup_pose", Pose, update_cup_pose)
+obj_sub = rospy.Subscriber("/obj_pose", Pose, update_obj_pose)
 
 tracik_body = TRACIK('Pelvis_Link', 'Upperbody_Link')
 tracik_right = TRACIK('Upperbody_Link', 'palm')
@@ -182,15 +182,14 @@ joint_upper_limit = tracik_right.get_upper_bound()
 joint_lower_limit = tracik_right.get_lower_bound()
 v_max = [10.0] * tracik_right.get_num_joints()
 
-# obj2grasp = TF_mat.from_vectors([-0.07, -0.22, 0.05], [0.1464466, 0.3535534, -0.3535534, 0.8535534])
-obj2grasp = TF_mat.from_vectors([-0.02, -0.13, 0.1], [0.1830127, 0.6830127, -0.1830127, 0.6830127])    # for mustard
-# ee2grasp = TF_mat.from_vectors([0.0, 0.1, -0.15], [-0.5, -0.5, 0.5, 0.5])
+obj2grasp = TF_mat.from_vectors([-0.11, -0.07, 0.1], [0.5, 0.5, -0.5, 0.5]) # for cup
+# obj2grasp = TF_mat.from_vectors([-0.02, -0.13, 0.1], [0.1830127, 0.6830127, -0.1830127, 0.6830127])    # for mustard
 
 while rospy.is_shutdown() is False:
     print("==========================\n"
         "Press a key and hit Enter to execute an action.\n"
         "0 to exit\n"
-        "1 to grab the cup")
+        "1 to grab the obj")
     character_input = input()
 
     if character_input == '0':
@@ -203,9 +202,8 @@ while rospy.is_shutdown() is False:
         body_rel_pos, body_rel_quat = tracik_body.forward_kinematics(q_current[12:15])
         body_tf = TF_mat.mul(TF_mat.from_vectors(pelvis_current[:3], pelvis_current[-4:]), TF_mat.from_vectors(body_rel_pos, body_rel_quat))
 
-        cup_rel_tf = TF_mat.mul(body_tf.inverse(), TF_mat.from_vectors(cup_pos, cup_quat))
-        grasp_pos, grasp_quat = TF_mat.mul(cup_rel_tf, obj2grasp).as_vectors()
-        # grasp_pos, grasp_quat = TF_mat.mul(cup_rel_tf, ee2grasp.inverse()).as_vectors()
+        obj_rel_tf = TF_mat.mul(body_tf.inverse(), TF_mat.from_vectors(obj_pos, obj_quat))
+        grasp_pos, grasp_quat = TF_mat.mul(obj_rel_tf, obj2grasp).as_vectors()
 
 
         planning_scene.set_planning_joint_index(32, 40)
@@ -224,7 +222,7 @@ while rospy.is_shutdown() is False:
 
         if r:
             rrt_planner = SuhanRRTConnect(state_dim=8, lb=joint_lower_limit, ub=joint_upper_limit, validity_fn=planning_scene.is_valid)
-            rrt_planner.max_distance = 0.25
+            rrt_planner.max_distance = 0.1
             rrt_planner.set_start(q_current[-8:])
             rrt_planner.set_goal(q_goal)
             for _ in range(10):
