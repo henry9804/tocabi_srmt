@@ -11,9 +11,15 @@ class TF_mat:
 
     @classmethod
     def from_vectors(cls, pos, quat):
-        tf_mat = cls()
-        tf_mat.T[:3,:3] = Rotation.from_quat(quat).as_matrix()
-        tf_mat.T[:3,3] = pos
+        pos = np.array(pos)
+        quat = np.array(quat)
+        if len(pos.shape) == 2:
+            tf_mat = cls(np.zeros([pos.shape[0], 4, 4]))
+            tf_mat.T[:,3,3] = 1
+        else:
+            tf_mat = cls()
+        tf_mat.T[...,:3,:3] = Rotation.from_quat(quat).as_matrix()
+        tf_mat.T[...,:3,3] = pos
 
         return tf_mat
     
@@ -35,11 +41,12 @@ class TF_mat:
         return tf_mat
     
     def inverse(self):
-        p = self.T[:3,3]
-        R = self.T[:3,:3]
-        inv = np.identity(4)
-        inv[:3,:3] = R.transpose()
-        inv[:3,3] = -np.matmul(R.transpose(), p)
+        p = self.T[...,:3,3:]
+        R = self.T[...,:3,:3]
+        inv = np.zeros_like(self.T)
+        inv[...,:3,:3] = R.swapaxes(-1, -2)
+        inv[...,:3,3:] = -np.matmul(R.swapaxes(-1, -2), p)
+        inv[...,3,3] = 1
 
         return TF_mat(inv)
     
@@ -47,13 +54,14 @@ class TF_mat:
         return self.T
     
     def as_vectors(self):
-        p = self.T[:3,3]
-        R = self.T[:3,:3]
+        p = self.T[...,:3,3]
+        R = self.T[...,:3,:3]
         q = Rotation.from_matrix(R).as_quat()
 
         return p, q
     
     def as_pose_msg(self):
+        assert len(self.shape) == 3, 'as_pose_msg() is not available for batched TF_mat'
         p = self.T[:3,3]
         R = self.T[:3,:3]
         q = Rotation.from_matrix(R).as_quat()
